@@ -1,4 +1,4 @@
-% version 2 : energy storage added
+% version 3 : demand response added
 % Demand of W,R,Q, 按照BT由小到大排
 E = zeros(1,25);  % storage amount
 Time = 1:24;
@@ -61,7 +61,7 @@ Branch = [
        15   1   1   6   inf;
        16   3   6   0   inf;
        17   3   6   4   inf;
-       18   3   6   inf inf;    % this branch is for △E  (dE)
+       18   3   6   inf inf;    % this branch is for △E  (dE), such branches should be at last
           ];
 Branch_Num = max(Branch(:,1));
 Input_Num = length(Branch(Branch(:,s)==-1,1)); % input num of the energy hub
@@ -74,7 +74,8 @@ V = sdpvar(length(Branch(Branch(:,t)~=inf,1)),24);
 dE = sdpvar(length(Branch(Branch(:,t)==inf,1)),24);
 V_In = sdpvar(length(Input_BT),24);
 V_Out = sdpvar(length(Output_BT),24); 
-
+Cutdown = sdpvar(3,24);
+Shift = sdpvar(3,24);
 %%
 %%%%%%%%%%%%%% Node Matrix %%%%%%%%%%%%%%%%%
 NT = 2; p1 = 3; p2 = 4;
@@ -98,7 +99,9 @@ Node = [
    6    2    0.90    0.90;
        ];  
 
-Cons = [];
+Cons = [sum(Shift(1,:)) == 0;
+		sum(Shift(2,:)) == 0;
+		sum(Shift(3,:)) == 0;;];
    %%
 %%%%%%%%%%%%%%%%%% Main %%%%%%%%%%%%%%%%%%%%%%%%%
 for hour = 1:24
@@ -198,15 +201,24 @@ for hour = 1:24
     Cons = [ Cons;
             [X;Y;Z]*[V(:,hour);dE(:,hour)] == [V_In(:,hour);V_Out(:,hour);zeros(length(Z(:,1)),1)];
             dE(:,hour) <= 10;   dE(:,hour) >= -10;  % 充放电功率约束
-            sum(dE(:,1:hour)) <= 50;    % 容量约束
+            sum(dE(:,1:hour)) <= 50;    % 储能容量约束
             sum(dE(:,1:hour)) >= 0;
-            V_Out(:,hour) == Demand(:,hour);
-            V_In(:,hour) >=0; V_Out(:,hour) >=0; V(:,hour)>=0;
+%  			Cutdown(:,hour) <= 0.2*Demand(:,hour);  % 负荷削减约束
+            Cutdown >=0;
+%  			Shift(:,hour) <= 0.2*Demand(:,hour);    % 负荷转移约束
+%  			Shift(:,hour) >= -0.2*Demand(:,hour);
+            V_Out(:,hour) == (Demand(:,hour) - Cutdown(:,hour) + Shift(:,hour));
+            V_In(:,hour) >=0; V_Out(:,hour) >=0; V(:,hour)>=0;	
             [V(:,hour);dE(:,hour)] <= Branch(:,cap);
             ];
 end
-
-Cost = sum(220*V_In(1) + 2*V_In(1)^2 + 100*V_In(2) + V_In(2)^2); %Vin的次序也是按BT编号由小到大，如本例中1-W 4-Gas
+Cost = sum(2.2*V_In(1,:) + 1*V_In(2,:)...
+    + 10 * power(Cutdown(1,:),2)...
+    + 6  * power(Cutdown(2,:),2)...
+    + 6  * power(Cutdown(3,:),2)...
+    + 5 * power(Shift(1,:),2)...
+    + 3  * power(Shift(2,:),2)...
+    + 3  * power(Shift(3,:),2)); %Vin的次序也是按BT编号由小到大，如本例中1-W 4-Gas
 ops = sdpsettings('solver','gurobi','verbose',1);
 solvesdp(Cons,Cost,ops);
 
@@ -216,7 +228,14 @@ final.GasInput = double(V_In(2,:));
 final.ElecOutput = double(V_Out(1,:));
 final.ColdOutput = double(V_Out(2,:));
 final.HeatOutput = double(V_Out(3,:));
+final.ElecShift = double(Shift(1,:));
+final.ColdShift = double(Shift(2,:));
+final.HeatShift = double(Shift(3,:));
+final.ElecCutdown = double(Cutdown(1,:));
+final.ColdCutdown = double(Cutdown(2,:));
+final.HeatCutdown = double(Cutdown(3,:));
 final.Cost = double(Cost);
+final.Storage = double(dE);
 for hour = 1:24
 result(hour).V = double(V(:,hour));
 end

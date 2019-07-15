@@ -57,3 +57,7 @@ for hour = 1:24
     result(hour).Cost = double(Cost);
     result(hour).V = double(V);
 end
+figure()
+plot(Time,Elec_In)
+hold on 
+plot(Gas_In)
