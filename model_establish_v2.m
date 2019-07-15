@@ -29,40 +29,60 @@ Gas_In = zeros(1,24);
 Elec_In = zeros(1,24);
 %%
 %%%%%%%%%%%%%%%% Branch Matrix (based on the paper) %%%%%%%%%%%%%%%%%%%%%%%%%%
-% BT(Branch Type): 1-W;  2-R(cold);  3-Q;  4-F(gas) 5-solar 6-wind
+% BT(Branch Type): 1-W;  2-R(cold);  3-Q;  4-F(gas)
 % s: start node;
 % t: end node;
 No = 1; BT = 2; s = 3; t = 4; cap = 5;
 % Branch = [
+%     % BT(Branch Type): 1-W;  2-R(cold);  3-Q;  4-F(gas) 5-solar 6-wind
 %     % No.  BT   s   t   capacity
-%        1    4  -1   1   inf;
-%        2    3   1   2   inf;
-%        3    3   1   0   300;
-%        4    1   1   0   inf;
-%        5    2   2   0   inf;
+%        1    1  -1   0   inf;
+%        2    1  -1   2   inf;
+%        3    4  -1   1   inf;
+%        4    4  -1   3   inf;
+%        5    1   1   2   inf;
+%        6    1   1   0   inf;
+%        7    1   1   5   inf;
+%        8    3   1   0   inf;
+%        9    3   1   4   inf;
+%        10   3   3   4   inf;
+%        11   3   3   0   inf;
+%        12   2   2   0   inf;
+%        13   3   5   0   inf;
+%        14   2   4   0   inf;
+%        15   1   1   6   inf;
+%        16   3   6   0   inf;
+%        17   3   6   4   inf;
+%        18   3   6   inf inf;    % this branch is for △E  (dE), such branches should be at last
 %           ];
 Branch = [
     % BT(Branch Type): 1-W;  2-R(cold);  3-Q;  4-F(gas) 5-solar 6-wind
     % No.  BT   s   t   capacity
        1    1  -1   0   inf;
-       2    1  -1   2   inf;
-       3    4  -1   1   inf;
-       4    4  -1   3   inf;
-       5    1   1   2   inf;
-       6    1   1   0   inf;
-       7    1   1   5   inf;
-       8    3   1   0   inf;
-       9    3   1   4   inf;
-       10   3   3   4   inf;
-       11   3   3   0   inf;
-       12   2   2   0   inf;
-       13   3   5   0   inf;
-       14   2   4   0   inf;
-       15   1   1   6   inf;
-       16   3   6   0   inf;
-       17   3   6   4   inf;
-       18   3   6   inf inf;    % this branch is for △E  (dE), such branches should be at last
-          ];
+       2    1   -1  3   inf;
+       3    1   -1  4   inf;
+       4    4   -1  1   inf;
+       5    4   -1  2   inf;
+       6    1   1   3   inf;
+       7    1   1   4   inf;
+       8    1   1   0   inf;
+       9    1   1   7   inf;
+       10   3   1   0   inf;
+       11   3   1   8   inf;
+       12   3   2   6   inf;
+       13   3   2   0   inf;
+       14   2   3   0   inf;
+       15   2   3   5   inf;
+       16   2   5   0   inf;
+       17   3   4   0   inf;
+       18   3   4   6   inf;
+       19   3   6   0   inf;
+       20   1   7   0   inf;
+       21   2   8   0   inf;
+       22   2   5   inf inf;    % this branch is for △E  (dE), such branches should be at last
+       23   3   6   inf inf;
+       24   1   7   inf inf;
+       ];
 Branch_Num = max(Branch(:,1));
 Input_Num = length(Branch(Branch(:,s)==-1,1)); % input num of the energy hub
 Output_Num = length(Branch(Branch(:,t)==0,1));
@@ -79,25 +99,32 @@ SolarUsed = sdpvar(1,24);
 %%%%%%%%%%%%%% Node Matrix %%%%%%%%%%%%%%%%%
 NT = 2; p1 = 3; p2 = 4;
 % Node = [
+% % NT = 1: input coef = eta, output coef = 1 in Z matrix
 % %  No.  NT   p1      p2
-%    -1  -1    0       0;
-%    0    0    0       0;
-%    1    3    0.25    0.50;  %% 哪个branch的index小，该branch的能量转换效率就写在前面
-%    2    1    0.80    0;
-%        ];
+%    -1   1    0       0;
+%    0    1    0       0;
+%    1    1    0.50    0.25;  %% 哪个branch的index小，该branch的能量转换效率就写在前面
+%    2    1    1.20    0;
+%    3    1    0.80    0;
+%    4    1    0.90    0;
+%    5    1    0.30    0;
+%    6    2    0.90    0.90;
+%        ];  
 Node = [
 % NT = 1: input coef = eta, output coef = 1 in Z matrix
+% NT = 2: input coef = eta1, output coef = eta2, storage coef = 1 (storage node)
 %  No.  NT   p1      p2
    -1   1    0       0;
    0    1    0       0;
-   1    1    0.50    0.25;  %% 哪个branch的index小，该branch的能量转换效率就写在前面
-   2    1    1.20    0;
-   3    1    0.80    0;
-   4    1    0.90    0;
-   5    1    0.30    0;
+   1    1    0.35    0.45;  %% 哪个branch的index小，该branch的能量转换效率就写在前面
+   2    1    0.85    0;
+   3    1    2.90    0;
+   4    1    2.30    0;
+   5    2    0.90    0.90;
    6    2    0.90    0.90;
+   7    2    0.90    0.90;
+   8    1    0.90    0;
        ];  
-
 Cons = [];
    %%
 %%%%%%%%%%%%%%%%%% Main %%%%%%%%%%%%%%%%%%%%%%%%%
@@ -200,9 +227,9 @@ for hour = 1:24
             SolarUsed(1,hour) <= Solar(hour);   % 光伏出力约束
             SolarUsed(1,hour) >= 0.6*Solar(hour); % 要求光伏利用率>=0.6
             SolarUsed(1,hour) <= V_In(1,hour);
-            dE(:,hour) <= 10;   dE(:,hour) >= -10;  % 充放电功率约束
-            sum(dE(:,1:hour)) <= 50;    % 储能容量约束
-            sum(dE(:,1:hour)) >= 0;
+            dE(:,hour) <= [10;10;10];   dE(:,hour) >= [-10;-10;-10];  % 充放电功率约束
+            sum(dE(1,1:hour)) <= 50;  sum(dE(2,1:hour)) <= 50; sum(dE(3,1:hour)) <= 50;  % 储能容量约束
+            sum(dE(1,1:hour)) >= 0;   sum(dE(2,1:hour)) >= 0;  sum(dE(3,1:hour)) >= 0;
             V_Out(:,hour) >= Demand(:,hour);
             V_In(:,hour) >=0; V_Out(:,hour) >=0; V(:,hour)>=0;	
             [V(:,hour);dE(:,hour)] <= Branch(:,cap);
