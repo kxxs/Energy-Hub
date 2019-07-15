@@ -10,4 +10,4 @@ data.docx: 文献中收集的参数
 
 energy hub.jpg: 自己设计的枢纽结构
 
-![energy_hub](C:\Users\kxxs\Desktop\Energy-Hub\energy_hub.jpg)
+![image](https://github.com/kxxs/Energy-Hub/blob/master/energy_hub.jpg?raw=true)
