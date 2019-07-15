@@ -1,4 +1,4 @@
-% version 2 : energy storage added
+% version 3 : demand response added
 % Demand of W,R,Q, 按照BT由小到大排
 E = zeros(1,25);  % storage amount
 Time = 1:24;
@@ -6,7 +6,7 @@ Time = 1:24;
           %17   18  19  20  21  22  23  24
 Solar  = [ 0,   0,  0,  0,  0,  3,  5,  16, 26, 34, 38, 40, 42, 40, 36, 26,...
            12,  4,  1,  0,  0,  0,  0,  0;
-          ]*2.5;
+          ]*5;
 Demand = [45,   47, 46, 44, 45, 53, 56, 77, 80, 92, 95, 94, 85, 83, 84, 82,...
           89,   101,110,115,110,90, 70, 50;   % W (electricity)
           17,   16, 16, 16, 16, 18, 20, 25, 25, 27, 30, 37, 35, 34, 33, 32....
@@ -61,7 +61,7 @@ Branch = [
        15   1   1   6   inf;
        16   3   6   0   inf;
        17   3   6   4   inf;
-       18   3   6   inf inf;    % this branch is for △E  (dE)
+       18   3   6   inf inf;    % this branch is for △E  (dE), such branches should be at last
           ];
 Branch_Num = max(Branch(:,1));
 Input_Num = length(Branch(Branch(:,s)==-1,1)); % input num of the energy hub
@@ -74,7 +74,7 @@ V = sdpvar(length(Branch(Branch(:,t)~=inf,1)),24);
 dE = sdpvar(length(Branch(Branch(:,t)==inf,1)),24);
 V_In = sdpvar(length(Input_BT),24);
 V_Out = sdpvar(length(Output_BT),24); 
-
+SolarUsed = sdpvar(1,24);
 %%
 %%%%%%%%%%%%%% Node Matrix %%%%%%%%%%%%%%%%%
 NT = 2; p1 = 3; p2 = 4;
@@ -197,16 +197,19 @@ for hour = 1:24
     %%%%%%%%%%%%%%%%%%% solve with yalmip %%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
     Cons = [ Cons;
             [X;Y;Z]*[V(:,hour);dE(:,hour)] == [V_In(:,hour);V_Out(:,hour);zeros(length(Z(:,1)),1)];
+            SolarUsed(1,hour) <= Solar(hour);   % 光伏出力约束
+            SolarUsed(1,hour) >= 0.6*Solar(hour); % 要求光伏利用率>=0.6
+            SolarUsed(1,hour) <= V_In(1,hour);
             dE(:,hour) <= 10;   dE(:,hour) >= -10;  % 充放电功率约束
-            sum(dE(:,1:hour)) <= 50;    % 容量约束
+            sum(dE(:,1:hour)) <= 50;    % 储能容量约束
             sum(dE(:,1:hour)) >= 0;
-            V_Out(:,hour) == Demand(:,hour);
-            V_In(:,hour) >=0; V_Out(:,hour) >=0; V(:,hour)>=0;
+            V_Out(:,hour) >= Demand(:,hour);
+            V_In(:,hour) >=0; V_Out(:,hour) >=0; V(:,hour)>=0;	
             [V(:,hour);dE(:,hour)] <= Branch(:,cap);
             ];
 end
+Cost = sum(1.2*(V_In(1,:) - SolarUsed(1,:)) + 2.05*V_In(2,:)); %Vin的次序也是按BT编号由小到大，如本例中1-W 4-Gas
 
-Cost = sum(220*V_In(1) + 2*V_In(1)^2 + 100*V_In(2) + V_In(2)^2); %Vin的次序也是按BT编号由小到大，如本例中1-W 4-Gas
 ops = sdpsettings('solver','gurobi','verbose',1);
 solvesdp(Cons,Cost,ops);
 
@@ -217,15 +220,26 @@ final.ElecOutput = double(V_Out(1,:));
 final.ColdOutput = double(V_Out(2,:));
 final.HeatOutput = double(V_Out(3,:));
 final.Cost = double(Cost);
+final.Storage = double(dE);
+final.SolarUsed = double(SolarUsed);
 for hour = 1:24
 result(hour).V = double(V(:,hour));
 end
 %% plot the optimal input for each hour
 figure
-plot(Time,final.ElecInput);
-hold on
-plot(Time,final.GasInput);
-legend('Elec Input','Gas Input')
+plot(Time,final.ElecInput); hold on;
+plot(Time,final.GasInput); hold on;
+plot(Time,final.SolarUsed); hold on;
+plot(Time,Solar);
+legend('Elec Input','Gas Input','Solar Used','Solar Total')
+title('Input graph')
+
+figure
+plot(Time, Demand(1,:)); hold on; 
+plot(Time, Demand(2,:)); hold on; 
+plot(Time, Demand(3,:)); 
+legend('ElecDemand','ColdDemand','HeatDemand')
+title('Output Graph')
 
 
 
