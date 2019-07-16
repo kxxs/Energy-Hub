@@ -215,20 +215,22 @@ for hour = 1:24
             sum(dE(1,1:hour)) >= -60;   sum(dE(2,1:hour)) >= -60;  sum(dE(3,1:hour)) >= -60;
  			Cutdown(:,hour) <= 0.5*Demand(:,hour);  % 负荷削减约束
             Cutdown >=0;
- 			Shift(:,hour) <= 0.5*Demand(:,hour);    % 负荷转移约束
- 			Shift(:,hour) >= -0.5*Demand(:,hour);
+ 			Shift(:,hour) <= 0.2*Demand(:,hour);    % 负荷转移约束
+ 			Shift(:,hour) >= -0.2*Demand(:,hour);
             V_Out(:,hour) == (Demand(:,hour) - Cutdown(:,hour) + Shift(:,hour));
             V_In(:,hour) >=0; V_Out(:,hour) >=0; V(:,hour)>=0;	
             [V(:,hour);dE(:,hour)] <= Branch(:,cap);
+            V_In(1,:) - SolarUsed(1,:) <= sum(Demand(1,:))/24 * 1.1 * ones(1,24); % 供应量约束
             ];
 end
-Cost = (V_In(1,:) - SolarUsed(1,:))*Price_E' + sum(2.05*V_In(2,:)...
-    + 0.05 * power(Cutdown(1,:),2) + 1 * Cutdown(1,:)...
-    + 0.02 * power(Cutdown(2,:),2) + 0.4 * Cutdown(2,:)...
-    + 0.02 * power(Cutdown(3,:),2) + 0.4 * Cutdown(3,:)...
-    + 0.05 * power(Shift(1,:),2) + 5 * Shift(1,:)...
+Cost = (V_In(1,:) - SolarUsed(1,:))*Price_E' + sum(2.05*V_In(2,:)... % Vin的次序也是按BT编号由小到大，如本例中1-W 4-Gas
+    + 0.05 * power(Cutdown(1,:),2) + 5 * Cutdown(1,:)...  % penalty for cutdown
+    + 0.02 * power(Cutdown(2,:),2) + 2 * Cutdown(2,:)...
+    + 0.02 * power(Cutdown(3,:),2) + 2 * Cutdown(3,:)...
+    + 0.05 * power(Shift(1,:),2) + 5 * Shift(1,:)...      % penalty for loadshift
     + 0.02 * power(Shift(2,:),2) + 2 * Shift(2,:)...
-    + 0.02 * power(Shift(3,:),2) + 2 * Shift(3,:)); %Vin的次序也是按BT编号由小到大，如本例中1-W 4-Gas
+    + 0.02 * power(Shift(3,:),2) + 2 * Shift(3,:))...
+    + 0.02 * (sum(Solar) - sum(SolarUsed));               % penalty for solar dismiss
 ops = sdpsettings('solver','gurobi','verbose',1);
 solvesdp(Cons,Cost,ops);
 
@@ -283,8 +285,3 @@ plot(Time,final.HeatCutdown);
 legend('ElecCutdown','ColdCutdown','HeatCutdown')
 title('Cutdown Amount')
 saveas(gcf, [fdir,'cutdown','.jpg'])
-
-
-
-
-    
