@@ -1,5 +1,7 @@
 % version 3 : demand response added
 % Demand of W,R,Q, 按照BT由小到大排
+fdir = 'C:\Users\kxxs\Desktop\Energy-Hub\case1\';
+
 E = zeros(1,25);  % storage amount
 Time = 1:24;
             %1    2      3    4      5    6     7     8
@@ -30,7 +32,7 @@ hold on
 plot(Time,Demand(3,:));
 legend('solar','elec','cold','heat')
 title('Original Demand and Supply')
-saveas(gcf, 'Demand', 'jpg')
+saveas(gcf, [fdir,'demand','.jpg'])
 
 Gas_In = zeros(1,24);
 Elec_In = zeros(1,24);
@@ -101,9 +103,12 @@ Node = [
    8    1    0.90    0;
        ];  
 
-Cons = [sum(Shift(1,:)) == 0;
+Cons = [sum(Shift(1,:)) == 0;   % 削峰填谷约束
 		sum(Shift(2,:)) == 0;
-		sum(Shift(3,:)) == 0;];
+		sum(Shift(3,:)) == 0;
+        sum(dE(1,:)) == 0;  %  储能平衡约束
+        sum(dE(2,:)) == 0;
+        sum(dE(3,:)) == 0;];
    %%
 %%%%%%%%%%%%%%%%%% Main %%%%%%%%%%%%%%%%%%%%%%%%%
 for hour = 1:24
@@ -207,7 +212,7 @@ for hour = 1:24
             SolarUsed(1,hour) <= V_In(1,hour);
             dE(:,hour) <= [20;20;20];   dE(:,hour) >= [-20;-20;-20];  % 充放电功率约束
             sum(dE(1,1:hour)) <= 80;  sum(dE(2,1:hour)) <= 80; sum(dE(3,1:hour)) <= 80;  % 储能容量约束
-            sum(dE(1,1:hour)) >= 0;   sum(dE(2,1:hour)) >= 0;  sum(dE(3,1:hour)) >= 0;
+            sum(dE(1,1:hour)) >= -60;   sum(dE(2,1:hour)) >= -60;  sum(dE(3,1:hour)) >= -60;
  			Cutdown(:,hour) <= 0.5*Demand(:,hour);  % 负荷削减约束
             Cutdown >=0;
  			Shift(:,hour) <= 0.5*Demand(:,hour);    % 负荷转移约束
@@ -217,7 +222,7 @@ for hour = 1:24
             [V(:,hour);dE(:,hour)] <= Branch(:,cap);
             ];
 end
-Cost = (V_In(1,:) - SolarUsed(1,:))*Price_E' + sum(2.85*V_In(2,:)...
+Cost = (V_In(1,:) - SolarUsed(1,:))*Price_E' + sum(2.05*V_In(2,:)...
     + 0.05 * power(Cutdown(1,:),2) + 1 * Cutdown(1,:)...
     + 0.02 * power(Cutdown(2,:),2) + 0.4 * Cutdown(2,:)...
     + 0.02 * power(Cutdown(3,:),2) + 0.4 * Cutdown(3,:)...
@@ -253,8 +258,7 @@ plot(Time,final.SolarUsed); hold on;
 plot(Time,Solar);
 legend('Elec Input','Gas Input','Solar Used','Solar Total')
 title('Input graph')
-saveas(gcf, 'input', 'jpg')
-
+saveas(gcf, [fdir,'input','.jpg'])
 
 figure
 plot(Time, Demand(1,:)); hold on; plot(Time, final.ElecOutput); hold on;
@@ -262,7 +266,7 @@ plot(Time, Demand(2,:)); hold on; plot(Time, final.ColdOutput); hold on;
 plot(Time, Demand(3,:)); hold on; plot(Time, final.HeatOutput);
 legend('ElecOrig','ElecResp','ColdOrig','ColdResp','HeatOrig','HeatResp','Location','NorthWest')
 title('Output Graph')
-saveas(gcf, 'output', 'jpg')
+saveas(gcf, [fdir,'output','.jpg'])
 
 figure
 plot(Time,final.ElecShift); hold on;
@@ -270,7 +274,7 @@ plot(Time,final.ColdShift); hold on;
 plot(Time,final.HeatShift);
 legend('ElecShift','ColdShift','HeatShift')
 title('Shift Amount')
-saveas(gcf, 'shift', 'jpg')
+saveas(gcf, [fdir,'shift','.jpg'])
 
 figure
 plot(Time,final.ElecCutdown); hold on;
@@ -278,7 +282,8 @@ plot(Time,final.ColdCutdown); hold on;
 plot(Time,final.HeatCutdown);
 legend('ElecCutdown','ColdCutdown','HeatCutdown')
 title('Cutdown Amount')
-saveas(gcf, 'cutdown', 'jpg')
+saveas(gcf, [fdir,'cutdown','.jpg'])
+
 
 
 
