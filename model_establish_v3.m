@@ -2,20 +2,25 @@
 % Demand of W,R,Q, 按照BT由小到大排
 E = zeros(1,25);  % storage amount
 Time = 1:24;
+            %1    2      3    4      5    6     7     8
+Price_E = [0.31, 0.31, 0.31, 0.31, 0.31, 0.31, 0.31, 1.12,...
+           1.12, 1.12, 1.12, 1.12, 0.64, 0.64, 0.64, 0.64,...
+           1.12, 1.12, 1.12, 1.12, 0.64, 0.64, 0.64, 0.31];
+
           %1    2   3   4   5   6   7   8   9   10  11  12  13  14  15  16
           %17   18  19  20  21  22  23  24
 Solar  = [ 0,   0,  0,  0,  0,  3,  5,  16, 26, 34, 38, 40, 42, 40, 36, 26,...
            12,  4,  1,  0,  0,  0,  0,  0;
           ]*5;
-Demand = [45,   47, 46, 44, 45, 53, 56, 77, 80, 92, 95, 94, 85, 83, 84, 82,...
-          89,   101,110,115,110,90, 70, 50;   % W (electricity)
+Demand = [45,   47, 46, 44, 45, 53, 56, 77, 85, 92, 95, 94, 81, 77, 72, 73,...
+          89,   101,110,115,85, 70, 65, 45;   % W (electricity)
           17,   16, 16, 16, 16, 18, 20, 25, 25, 27, 30, 37, 35, 34, 33, 32....
           30,   29, 29, 29, 27, 23, 23, 24;   % R (cold)
           30,   30, 30, 30, 32, 32, 36, 40, 42, 35, 32, 28, 16, 17, 21, 23,...
           28,   32, 25, 26, 27, 30, 32, 35;   % Q (head)
           ]; 
 
-figure(1)
+figure
 plot(Time,Solar,'-*');
 hold on
 plot(Time,Demand(1,:),'-.');
@@ -24,6 +29,8 @@ plot(Time,Demand(2,:));
 hold on
 plot(Time,Demand(3,:));
 legend('solar','elec','cold','heat')
+title('Original Demand and Supply')
+saveas(gcf, 'Demand', 'jpg')
 
 Gas_In = zeros(1,24);
 Elec_In = zeros(1,24);
@@ -33,14 +40,6 @@ Elec_In = zeros(1,24);
 % s: start node;
 % t: end node;
 No = 1; BT = 2; s = 3; t = 4; cap = 5;
-% Branch = [
-%     % No.  BT   s   t   capacity
-%        1    4  -1   1   inf;
-%        2    3   1   2   inf;
-%        3    3   1   0   300;
-%        4    1   1   0   inf;
-%        5    2   2   0   inf;
-%           ];
 Branch = [
     % BT(Branch Type): 1-W;  2-R(cold);  3-Q;  4-F(gas) 5-solar 6-wind
     % No.  BT   s   t   capacity
@@ -86,13 +85,6 @@ SolarUsed = sdpvar(1,24);
 %%
 %%%%%%%%%%%%%% Node Matrix %%%%%%%%%%%%%%%%%
 NT = 2; p1 = 3; p2 = 4;
-% Node = [
-% %  No.  NT   p1      p2
-%    -1  -1    0       0;
-%    0    0    0       0;
-%    1    3    0.25    0.50;  %% 哪个branch的index小，该branch的能量转换效率就写在前面
-%    2    1    0.80    0;
-%        ];
 Node = [
 % NT = 1: input coef = eta, output coef = 1 in Z matrix
 % NT = 2: input coef = eta1, output coef = eta2, storage coef = 1 (storage node)
@@ -103,9 +95,9 @@ Node = [
    2    1    0.85    0;
    3    1    2.90    0;
    4    1    2.30    0;
-   5    2    0.90    0.90;
-   6    2    0.90    0.90;
-   7    2    0.90    0.90;
+   5    2    0.90    0.95;
+   6    2    0.90    0.95;
+   7    2    0.90    0.95;
    8    1    0.90    0;
        ];  
 
@@ -211,10 +203,10 @@ for hour = 1:24
     Cons = [ Cons;
             [X;Y;Z]*[V(:,hour);dE(:,hour)] == [V_In(:,hour);V_Out(:,hour);zeros(length(Z(:,1)),1)];
             SolarUsed(1,hour) <= Solar(hour);   % 光伏出力约束
-            SolarUsed(1,hour) >= 0.6*Solar(hour); % 要求光伏利用率>=0.6
+            SolarUsed(1,hour) >= 0.5*Solar(hour); % 要求光伏利用率>=0.6
             SolarUsed(1,hour) <= V_In(1,hour);
-            dE(:,hour) <= [10;10;10];   dE(:,hour) >= [-10;-10;-10];  % 充放电功率约束
-            sum(dE(1,1:hour)) <= 50;  sum(dE(2,1:hour)) <= 50; sum(dE(3,1:hour)) <= 50;  % 储能容量约束
+            dE(:,hour) <= [20;20;20];   dE(:,hour) >= [-20;-20;-20];  % 充放电功率约束
+            sum(dE(1,1:hour)) <= 80;  sum(dE(2,1:hour)) <= 80; sum(dE(3,1:hour)) <= 80;  % 储能容量约束
             sum(dE(1,1:hour)) >= 0;   sum(dE(2,1:hour)) >= 0;  sum(dE(3,1:hour)) >= 0;
  			Cutdown(:,hour) <= 0.5*Demand(:,hour);  % 负荷削减约束
             Cutdown >=0;
@@ -225,19 +217,13 @@ for hour = 1:24
             [V(:,hour);dE(:,hour)] <= Branch(:,cap);
             ];
 end
-Cost = sum(1.2*(V_In(1,:) - SolarUsed(1,:)) + 2.05*V_In(2,:)...
-    + 2 * power(Cutdown(1,:),2) + 2 * Cutdown(1,:)...
-    + 1 * power(Cutdown(2,:),2) + 1 * Cutdown(2,:)...
-    + 1 * power(Cutdown(3,:),2) + 1 * Cutdown(3,:)...
-    + 0.2 * power(Shift(1,:),2) + 0.2 * Shift(1,:)...
-    + 0.1 * power(Shift(2,:),2) + 0.1 * Shift(2,:)...
-    + 0.1 * power(Shift(3,:),2) + 0.1 * Shift(3,:)); %Vin的次序也是按BT编号由小到大，如本例中1-W 4-Gas
-%     + 10 * Cutdown(1,:)...
-%     + 5 * Cutdown(2,:)...
-%     + 5 * Cutdown(3,:)...
-%     + 5 * Shift(1,:)...
-%     + 2 * Shift(2,:)...
-%     + 2 * Shift(3,:)); %Vin的次序也是按BT编号由小到大，如本例中1-W 4-Gas
+Cost = (V_In(1,:) - SolarUsed(1,:))*Price_E' + sum(2.85*V_In(2,:)...
+    + 0.05 * power(Cutdown(1,:),2) + 1 * Cutdown(1,:)...
+    + 0.02 * power(Cutdown(2,:),2) + 0.4 * Cutdown(2,:)...
+    + 0.02 * power(Cutdown(3,:),2) + 0.4 * Cutdown(3,:)...
+    + 0.05 * power(Shift(1,:),2) + 5 * Shift(1,:)...
+    + 0.02 * power(Shift(2,:),2) + 2 * Shift(2,:)...
+    + 0.02 * power(Shift(3,:),2) + 2 * Shift(3,:)); %Vin的次序也是按BT编号由小到大，如本例中1-W 4-Gas
 ops = sdpsettings('solver','gurobi','verbose',1);
 solvesdp(Cons,Cost,ops);
 
@@ -267,25 +253,32 @@ plot(Time,final.SolarUsed); hold on;
 plot(Time,Solar);
 legend('Elec Input','Gas Input','Solar Used','Solar Total')
 title('Input graph')
+saveas(gcf, 'input', 'jpg')
+
 
 figure
 plot(Time, Demand(1,:)); hold on; plot(Time, final.ElecOutput); hold on;
 plot(Time, Demand(2,:)); hold on; plot(Time, final.ColdOutput); hold on;
 plot(Time, Demand(3,:)); hold on; plot(Time, final.HeatOutput);
-legend('ElecOrig','ElecResp','ColdOrig','ColdResp','HeatOrig','HeatResp')
+legend('ElecOrig','ElecResp','ColdOrig','ColdResp','HeatOrig','HeatResp','Location','NorthWest')
 title('Output Graph')
+saveas(gcf, 'output', 'jpg')
 
 figure
 plot(Time,final.ElecShift); hold on;
 plot(Time,final.ColdShift); hold on;
 plot(Time,final.HeatShift);
 legend('ElecShift','ColdShift','HeatShift')
+title('Shift Amount')
+saveas(gcf, 'shift', 'jpg')
 
 figure
 plot(Time,final.ElecCutdown); hold on;
 plot(Time,final.ColdCutdown); hold on;
 plot(Time,final.HeatCutdown);
 legend('ElecCutdown','ColdCutdown','HeatCutdown')
+title('Cutdown Amount')
+saveas(gcf, 'cutdown', 'jpg')
 
 
 
