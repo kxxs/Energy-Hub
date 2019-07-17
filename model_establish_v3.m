@@ -1,8 +1,10 @@
 % version 3 : demand response added
 % Demand of W,R,Q, 按照BT由小到大排
-fdir = 'C:\Users\kxxs\Desktop\Energy-Hub\case1\';
-
+fdir = 'C:\Users\kxxs\Desktop\Energy-Hub\temp\';
+% case1\
 E = zeros(1,25);  % storage amount
+Storage_Cap = [50,50,50];  % storage capacity
+Storage_Pm = [20,20,20];   % max power of storage
 Time = 1:24;
             %1    2      3    4      5    6     7     8
 Price_E = [0.31, 0.31, 0.31, 0.31, 0.31, 0.31, 0.31, 1.12,...
@@ -66,9 +68,10 @@ Branch = [
        19   3   6   0   inf;
        20   1   7   0   inf;
        21   2   8   0   inf;
-       22   2   5   inf inf;    % this branch is for △E  (dE), such branches should be at last
-       23   3   6   inf inf;
-       24   1   7   inf inf;
+       22   1   -1  7   inf;
+       23   2   5   inf inf;    % this branch is for △E  (dE), such branches should be at last
+       24   3   6   inf inf;
+       25   1   7   inf inf;
        ];
 Branch_Num = max(Branch(:,1));
 Input_Num = length(Branch(Branch(:,s)==-1,1)); % input num of the energy hub
@@ -210,9 +213,14 @@ for hour = 1:24
             SolarUsed(1,hour) <= Solar(hour);   % 光伏出力约束
             SolarUsed(1,hour) >= 0.5*Solar(hour); % 要求光伏利用率>=0.6
             SolarUsed(1,hour) <= V_In(1,hour);
-            dE(:,hour) <= [20;20;20];   dE(:,hour) >= [-20;-20;-20];  % 充放电功率约束
-            sum(dE(1,1:hour)) <= 80;  sum(dE(2,1:hour)) <= 80; sum(dE(3,1:hour)) <= 80;  % 储能容量约束
-            sum(dE(1,1:hour)) >= -60;   sum(dE(2,1:hour)) >= -60;  sum(dE(3,1:hour)) >= -60;
+            dE(:,hour) <= [Storage_Pm(1);Storage_Pm(2);Storage_Pm(3)];   
+            dE(:,hour) >= [-Storage_Pm(1);-Storage_Pm(2);-Storage_Pm(3)];  % 充放电功率约束
+            sum(dE(1,1:hour)) <= Storage_Cap(1);  
+            sum(dE(2,1:hour)) <= Storage_Cap(2); 
+            sum(dE(3,1:hour)) <= Storage_Cap(3);  % 储能容量约束
+            sum(dE(1,1:hour)) >= -Storage_Cap(1)*0.8;
+            sum(dE(2,1:hour)) >= -Storage_Cap(2)*0.8;  
+            sum(dE(3,1:hour)) >= -Storage_Cap(3)*0.8;
  			Cutdown(:,hour) <= 0.5*Demand(:,hour);  % 负荷削减约束
             Cutdown >=0;
  			Shift(:,hour) <= 0.2*Demand(:,hour);    % 负荷转移约束
@@ -285,3 +293,4 @@ plot(Time,final.HeatCutdown);
 legend('ElecCutdown','ColdCutdown','HeatCutdown')
 title('Cutdown Amount')
 saveas(gcf, [fdir,'cutdown','.jpg'])
+

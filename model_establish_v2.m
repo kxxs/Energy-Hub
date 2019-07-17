@@ -79,9 +79,10 @@ Branch = [
        19   3   6   0   inf;
        20   1   7   0   inf;
        21   2   8   0   inf;
-       22   2   5   inf inf;    % this branch is for △E  (dE), such branches should be at last
-       23   3   6   inf inf;
-       24   1   7   inf inf;
+       22   1   -1  7   inf;
+       23   2   5   inf inf;    % this branch is for △E  (dE), such branches should be at last
+       24   3   6   inf inf;
+       25   1   7   inf inf;
        ];
 Branch_Num = max(Branch(:,1));
 Input_Num = length(Branch(Branch(:,s)==-1,1)); % input num of the energy hub
@@ -125,7 +126,9 @@ Node = [
    7    2    0.90    0.90;
    8    1    0.90    0;
        ];  
-Cons = [];
+Cons = [sum(dE(1,:)) == 0;
+        sum(dE(2,:)) == 0;
+        sum(dE(3,:)) == 0];
    %%
 %%%%%%%%%%%%%%%%%% Main %%%%%%%%%%%%%%%%%%%%%%%%%
 for hour = 1:24
@@ -227,9 +230,9 @@ for hour = 1:24
             SolarUsed(1,hour) <= Solar(hour);   % 光伏出力约束
             SolarUsed(1,hour) >= 0.6*Solar(hour); % 要求光伏利用率>=0.6
             SolarUsed(1,hour) <= V_In(1,hour);
-            dE(:,hour) <= [10;10;10];   dE(:,hour) >= [-10;-10;-10];  % 充放电功率约束
+            dE(:,hour) <= [20;20;20];   dE(:,hour) >= [-20;-20;-20];  % 充放电功率约束
             sum(dE(1,1:hour)) <= 50;  sum(dE(2,1:hour)) <= 50; sum(dE(3,1:hour)) <= 50;  % 储能容量约束
-            sum(dE(1,1:hour)) >= 0;   sum(dE(2,1:hour)) >= 0;  sum(dE(3,1:hour)) >= 0;
+            sum(dE(1,1:hour)) >= -50;   sum(dE(2,1:hour)) >= -50;  sum(dE(3,1:hour)) >= -50;
             V_Out(:,hour) >= Demand(:,hour);
             V_In(:,hour) >=0; V_Out(:,hour) >=0; V(:,hour)>=0;	
             [V(:,hour);dE(:,hour)] <= Branch(:,cap);
