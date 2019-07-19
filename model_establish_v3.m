@@ -1,40 +1,12 @@
 % version 3 : demand response added
 % Demand of W,R,Q, 按照BT由小到大排
-fdir = 'C:\Users\kxxs\Desktop\Energy-Hub\temp\';
-% case1\
+
 E = zeros(1,25);  % storage amount
-Storage_Cap = [50,50,50];  % storage capacity
-Storage_Pm = [20,20,20];   % max power of storage
-Time = 1:24;
-            %1    2      3    4      5    6     7     8
-Price_E = [0.31, 0.31, 0.31, 0.31, 0.31, 0.31, 0.31, 1.12,...
-           1.12, 1.12, 1.12, 1.12, 0.64, 0.64, 0.64, 0.64,...
-           1.12, 1.12, 1.12, 1.12, 0.64, 0.64, 0.64, 0.31];
+Storage_Cap = [100,100,100];  % storage capacity
+Storage_Pm = [30,30,30];   % max power of storage
 
-          %1    2   3   4   5   6   7   8   9   10  11  12  13  14  15  16
-          %17   18  19  20  21  22  23  24
-Solar  = [ 0,   0,  0,  0,  0,  3,  5,  16, 26, 34, 38, 40, 42, 40, 36, 26,...
-           12,  4,  1,  0,  0,  0,  0,  0;
-          ]*5;
-Demand = [45,   47, 46, 44, 45, 53, 56, 77, 85, 92, 95, 94, 81, 77, 72, 73,...
-          89,   101,110,115,85, 70, 65, 45;   % W (electricity)
-          17,   16, 16, 16, 16, 18, 20, 25, 25, 27, 30, 37, 35, 34, 33, 32....
-          30,   29, 29, 29, 27, 23, 23, 24;   % R (cold)
-          30,   30, 30, 30, 32, 32, 36, 40, 42, 35, 32, 28, 16, 17, 21, 23,...
-          28,   32, 25, 26, 27, 30, 32, 35;   % Q (head)
-          ]; 
-
-figure
-plot(Time,Solar,'-*');
-hold on
-plot(Time,Demand(1,:),'-.');
-hold on
-plot(Time,Demand(2,:));
-hold on
-plot(Time,Demand(3,:));
-legend('solar','elec','cold','heat')
-title('Original Demand and Supply')
-saveas(gcf, [fdir,'demand','.jpg'])
+data_collection;
+Demand = Demand_Summer;
 
 Gas_In = zeros(1,24);
 Elec_In = zeros(1,24);
@@ -48,8 +20,8 @@ Branch = [
     % BT(Branch Type): 1-W;  2-R(cold);  3-Q;  4-F(gas) 5-solar 6-wind
     % No.  BT   s   t   capacity
        1    1  -1   0   inf;
-       2    1   -1  3   inf;
-       3    1   -1  4   inf;
+       2    1   -1  3   30;
+       3    1   -1  4   30;
        4    4   -1  1   inf;
        5    4   -1  2   inf;
        6    1   1   3   inf;
@@ -229,15 +201,16 @@ for hour = 1:24
             V_In(:,hour) >=0; V_Out(:,hour) >=0; V(:,hour)>=0;	
             [V(:,hour);dE(:,hour)] <= Branch(:,cap);
             V_In(1,:) - SolarUsed(1,:) <= sum(Demand(1,:))/24 * 1.1 * ones(1,24); % 供应量约束
+            V_In(2,:) <= 30;
             ];
 end
-Cost = (V_In(1,:) - SolarUsed(1,:))*Price_E' + sum(2.05*V_In(2,:)... % Vin的次序也是按BT编号由小到大，如本例中1-W 4-Gas
-    + 0.05 * power(Cutdown(1,:),2) + 5 * Cutdown(1,:)...  % penalty for cutdown
-    + 0.02 * power(Cutdown(2,:),2) + 2 * Cutdown(2,:)...
-    + 0.02 * power(Cutdown(3,:),2) + 2 * Cutdown(3,:)...
-    + 0.05 * power(Shift(1,:),2) + 5 * Shift(1,:)...      % penalty for loadshift
-    + 0.02 * power(Shift(2,:),2) + 2 * Shift(2,:)...
-    + 0.02 * power(Shift(3,:),2) + 2 * Shift(3,:))...
+Cost = (V_In(1,:) - SolarUsed(1,:))*Price_E' + sum(2.85*V_In(2,:)... % Vin的次序也是按BT编号由小到大，如本例中1-W 4-Gas
+    + 0.0002 * power(Cutdown(1,:),2) + 15 * Cutdown(1,:)...  % penalty for cutdown
+    + 0.0002 * power(Cutdown(2,:),2) + 7 * Cutdown(2,:)...
+    + 0.0001 * power(Cutdown(3,:),2) + 7 * Cutdown(3,:)...
+    + 0.00 * power(Shift(1,:),2) + 5 * Shift(1,:)...      % penalty for loadshift
+    + 0.00 * power(Shift(2,:),2) + 2 * Shift(2,:)...
+    + 0.00 * power(Shift(3,:),2) + 2 * Shift(3,:))...
     + 0.02 * (sum(Solar) - sum(SolarUsed));               % penalty for solar dismiss
 ops = sdpsettings('solver','gurobi','verbose',1);
 solvesdp(Cons,Cost,ops);
@@ -293,4 +266,3 @@ plot(Time,final.HeatCutdown);
 legend('ElecCutdown','ColdCutdown','HeatCutdown')
 title('Cutdown Amount')
 saveas(gcf, [fdir,'cutdown','.jpg'])
-
