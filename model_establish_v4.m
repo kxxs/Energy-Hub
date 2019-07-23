@@ -1,4 +1,4 @@
-% version 3 : demand response added
+% version 4 : adjustment for summer and spring
 % Demand of W,R,Q, 按照BT由小到大排
 fdir = 'C:\Users\kxxs\Desktop\Energy-Hub\Spring\';
 mysolver = 'gurobi';
@@ -217,19 +217,19 @@ for hour = 1:24
 %              -25 <= V_In(2,hour) -   V_In(2,hour-1) <= 25;   % Change rate constraint
              ];
          end
-         final2.CHP = double(V(4,:));
+% final2.CHP = double(V(4,:));
 % final2.GB = double(V(5,:));
 % final2.EC = double(V(2,:) + V(6,:));
 % final2.EH = double(V(3,:) + V(7,:));
 % final2.AB = double(V(8,:));
 end
 Cost = (V_In(1,:) - SolarUsed(1,:))*Price_E' + sum(2.85/10*V_In(2,:)... % Vin的次序也是按BT编号由小到大，如本例中1-W 4-Gas
-        + 0.0000* power(Cutdown(1,:),2) + 1.0 * Cutdown(1,:)...  % penalty for cutdown
-    + 0.0000 * power(Cutdown(2,:),2) + 0.4 * Cutdown(2,:)...
-    + 0.0000 * power(Cutdown(3,:),2) + 0.4 * Cutdown(3,:)...
-    + 0.00002 * power(Shift(1,:),2) + 2.5 * Shift(1,:)...      % penalty for loadshift
-    + 0.00001 * power(Shift(2,:),2) + 1 * Shift(2,:)...
-    + 0.00001 * power(Shift(3,:),2) + 1 * Shift(3,:))...
+        + 0.0000* power(Cutdown(1,:),2) + 1.1 * Cutdown(1,:)...  % penalty for cutdown
+    + 0.0000 * power(Cutdown(2,:),2) + 0.38 * Cutdown(2,:)...
+    + 0.0000 * power(Cutdown(3,:),2) + 0.38 * Cutdown(3,:)...
+    + 0.00002 * power(Shift(1,:),2) + 1.1 * Shift(1,:)...      % penalty for loadshift
+    + 0.00001 * power(Shift(2,:),2) + 0.38 * Shift(2,:)...
+    + 0.00001 * power(Shift(3,:),2) + 0.38 * Shift(3,:))...
     + 0.00001 * (sum(Solar) - sum(SolarUsed));               % penalty for solar dismiss
 
 
