@@ -43,9 +43,10 @@ Branch = [
        20   1   7   0   100;
        21   2   8   0   100;
        22   1   -1  7   20;
-       23   2   5   inf 90;    % this branch is for ¡÷E  (dE), such branches should be at last
-       24   3   6   inf 90;
-       25   1   7   inf 90;
+       23   3   1   6   20;
+       24   2   5   inf 90;    % this branch is for ¡÷E  (dE), such branches should be at last
+       25   3   6   inf 90;
+       26   1   7   inf 90;
        ];
 Branch_Num = max(Branch(:,1));
 Input_Num = length(Branch(Branch(:,s)==-1,1)); % input num of the energy hub

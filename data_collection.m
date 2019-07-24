@@ -1,6 +1,10 @@
 set(0,'DefaultFigureVisible', 'on')
-dfdir = 'C:\Users\kxxs\Desktop\Energy-Hub\Load\';
+loaddir = 'C:\Users\kxxs\Desktop\Energy-Hub\Load\';
 rand('seed',1);
+
+renewables = importdata('renewable.dat');
+Wind_Summer = renewables.Wind_summer_unit;
+Wind_Winter = renewables.Wind_winter_unit;
 
 Time = 1:24;
             %1    2      3    4      5    6     7     8
@@ -76,7 +80,7 @@ plot([21 21], get(gca, 'YLim'), '--g')
 % 'solar',
 legend('elec','cold','heat')
 title('Original Load (Summer)')
-saveas(gcf, [dfdir,'load_summer','.jpg'])
+saveas(gcf, [loaddir,'load_summer','.jpg'])
 
 
 % subplot(1,3,2)
@@ -95,7 +99,7 @@ plot([21 21], get(gca, 'YLim'), '--g')
 % 'solar',
 legend('elec','cold','heat')
 title('Original Load (Winter)')
-saveas(gcf, [dfdir,'load_winter','.jpg'])
+saveas(gcf, [loaddir,'load_winter','.jpg'])
 
 % subplot(1,3,3)
 figure
@@ -113,4 +117,4 @@ plot([21 21], get(gca, 'YLim'), '--g')
 % 'solar',
 legend('elec','cold','heat')
 title('Original Load (Spring)')
-saveas(gcf, [dfdir,'load_spring','.jpg'])
+saveas(gcf, [loaddir,'load_spring','.jpg'])

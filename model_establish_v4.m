@@ -1,14 +1,22 @@
 % version 4 : adjustment for summer and spring
 % Demand of W,R,Q, 按照BT由小到大排
-fdir = 'C:\Users\kxxs\Desktop\Energy-Hub\Spring\';
-mysolver = 'gurobi';
+
+% renewables = importdata('renewable.dat');
+% Wind_Summer = renewables.Wind_summer_unit;
+% Wind_Winter = renewables.Wind_winter_unit;
+
+fdir = 'C:\Users\kxxs\Desktop\Energy-Hub\Summer\';
+loaddir = 'C:\Users\kxxs\Desktop\Energy-Hub\Load\';
+
+data_collection;
+Demand = Demand_Summer;
+% load([loaddir,'Demand_Spring.mat']);
+
+mysolver = 'cplex';
 
 E = zeros(1,25);  % storage amount
 Storage_Cap = [20,20,20];  % storage capacity
 Storage_Pm = [10,10,10];   % max power of storage
-
-data_collection;
-Demand = Demand_Spring;
 
 Gas_In = zeros(1,24);
 Elec_In = zeros(1,24);
@@ -24,28 +32,29 @@ Branch = [
        1    1  -1   0   120;
        2    1   -1  3   10;
        3    1   -1  4   10;
-       4    4   -1  1   50;
-       5    4   -1  2   50;
-       6    1   1   3   5;
-       7    1   1   4   5;
+       4    4   -1  1   55;
+       5    4   -1  2   20;
+       6    1   1   3   10;
+       7    1   1   4   0;
        8    1   1   0   80;
        9    1   1   7   80;
        10   3   1   0   80;
        11   3   1   8   40;
-       12   3   2   6   80;
+       12   3   2   6   0;
        13   3   2   0   90;
        14   2   3   0   90;
        15   2   3   5   90;
        16   2   5   0   90;
-       17   3   4   0   900;
-       18   3   4   6   900;
+       17   3   4   0   90;
+       18   3   4   6   90;
        19   3   6   0   100;
        20   1   7   0   100;
        21   2   8   0   100;
        22   1   -1  7   20;
-       23   2   5   inf 90;    % this branch is for △E  (dE), such branches should be at last
-       24   3   6   inf 90;
-       25   1   7   inf 90;
+       23   3   1   6   20;
+       24   2   5   inf 90;    % this branch is for △E  (dE), such branches should be at last
+       25   3   6   inf 90;
+       26   1   7   inf 90;
        ];
 Branch_Num = max(Branch(:,1));
 Input_Num = length(Branch(Branch(:,s)==-1,1)); % input num of the energy hub
@@ -198,23 +207,21 @@ for hour = 1:24
  			Cutdown(:,hour) <= 0.1*Demand(:,hour);  % 负荷削减约束
             Cutdown >=0;
             Shift(:,hour) <= 10;
- 			Shift(:,hour) <= 0.2*Demand(:,hour);    % 负荷转移约束
- 			Shift(:,hour) >= -0.2*Demand(:,hour);
+ 			Shift(:,hour) <= 0.1*Demand(:,hour);    % 负荷转移约束
+ 			Shift(:,hour) >= -0.1*Demand(:,hour);
             V_Out(:,hour) == (Demand(:,hour) - Cutdown(:,hour) + Shift(:,hour));
             V_In(:,hour) >=0; V_Out(:,hour) >=0; V(:,hour)>=0;	
             [V(:,hour);dE(:,hour)] <= Branch(:,cap);
              V_In(1,:) - SolarUsed(1,:) <= 80; % 供应量约束
              V_In(2,:) <= 60;
-%              dE == 0;
             ];
         
          if(hour > 1)
-         Cons = [Cons;
-              -25 <= V(:,hour) -   V(:,hour-1) <= 25;
-              -15 <= V(8,hour) -   V(8,hour-1) <= 15;
-              -10 <= V(2,hour) -   V(2,hour-1) + V(6,hour) -   V(6,hour-1) <= 10;
-              -10 <= V(3,hour) -   V(3,hour-1) + V(7,hour) -   V(7,hour-1) <= 10;
-%              -25 <= V_In(2,hour) -   V_In(2,hour-1) <= 25;   % Change rate constraint
+         Cons = [Cons;  % Change rate constraint
+              -20 <= V(:,hour) -   V(:,hour-1) <= 20;
+              -15 <= V(8,hour) -   V(8,hour-1) <= 15;   % AB
+              -10 <= V(2,hour) -   V(2,hour-1) + V(6,hour) -   V(6,hour-1) <= 10;  % EC
+              -10 <= V(3,hour) -   V(3,hour-1) + V(7,hour) -   V(7,hour-1) <= 10;  % EH
              ];
          end
 % final2.CHP = double(V(4,:));
@@ -223,18 +230,28 @@ for hour = 1:24
 % final2.EH = double(V(3,:) + V(7,:));
 % final2.AB = double(V(8,:));
 end
+z = binvar(3,24);
+Shift_Abs = sdpvar(3,24);
+U = 1000;
+
+
+Cons1 = [Cons;
+        0 <= Shift_Abs - Shift <= 2*U*z; U*(1-z) >= Shift;
+        0 <= Shift_Abs + Shift <= 2*U*(1-z); -U*z <= Shift;
+        -U <= Shift <= U;];
+
 Cost = (V_In(1,:) - SolarUsed(1,:))*Price_E' + sum(2.85/10*V_In(2,:)... % Vin的次序也是按BT编号由小到大，如本例中1-W 4-Gas
-        + 0.0000* power(Cutdown(1,:),2) + 1.1 * Cutdown(1,:)...  % penalty for cutdown
-    + 0.0000 * power(Cutdown(2,:),2) + 0.38 * Cutdown(2,:)...
-    + 0.0000 * power(Cutdown(3,:),2) + 0.38 * Cutdown(3,:)...
-    + 0.00002 * power(Shift(1,:),2) + 1.1 * Shift(1,:)...      % penalty for loadshift
-    + 0.00001 * power(Shift(2,:),2) + 0.38 * Shift(2,:)...
-    + 0.00001 * power(Shift(3,:),2) + 0.38 * Shift(3,:))...
-    + 0.00001 * (sum(Solar) - sum(SolarUsed));               % penalty for solar dismiss
+        + 0.0000* power(Cutdown(1,:),2) + 1.5 * Cutdown(1,:)...  % penalty for cutdown
+    + 0.0000 * power(Cutdown(2,:),2) + 0.7 * Cutdown(2,:)...
+    + 0.0000 * power(Cutdown(3,:),2) + 0.7 * Cutdown(3,:)...
+    + 0.00002 * power(Shift(1,:),2) + 0.6 * Shift_Abs(1,:)/2 ...      % penalty for loadshift
+    + 0.00001 * power(Shift(2,:),2) + 0.32 * Shift_Abs(2,:)/2 ...
+    + 0.00001 * power(Shift(3,:),2) + 0.32 * Shift_Abs(3,:))/2 ...
+    + 0.2 * (sum(Solar) - sum(SolarUsed));               % penalty for solar dismiss
 
 
 ops = sdpsettings('solver',mysolver,'verbose',1);
-solvesdp(Cons,Cost,ops);
+solvesdp(Cons1,Cost,ops);
 
 final.Demand = Demand;
 final.ElecInput = double(V_In(1,:));
@@ -245,10 +262,14 @@ final.HeatOutput = double(V_Out(3,:));
 final.ElecShift = double(Shift(1,:));
 final.ColdShift = double(Shift(2,:));
 final.HeatShift = double(Shift(3,:));
+final.ElecShift_Abs = double(Shift_Abs(1,:));
+final.ColdShift_Abs = double(Shift_Abs(2,:));
+final.HeatShift_Abs = double(Shift_Abs(3,:));
 final.ElecCutdown = double(Cutdown(1,:));
 final.ColdCutdown = double(Cutdown(2,:));
 final.HeatCutdown = double(Cutdown(3,:));
 final.Cost = double((V_In(1,:) - SolarUsed(1,:))*Price_E' + sum(2.85/10*V_In(2,:)));
+final.TotalCost = double(Cost);
 final.Storage = double(dE);
 final.SolarUsed = double(SolarUsed);
 final.CHP = double(V(4,:));
@@ -256,6 +277,7 @@ final.GB = double(V(5,:));
 final.EC = double(V(2,:) + V(6,:));
 final.EH = double(V(3,:) + V(7,:));
 final.AB = double(V(8,:));
+final.V = double(V);
 
 Cost2 = (V_In(1,:) - SolarUsed(1,:))*Price_E' + sum(2.85/10*V_In(2,:))... % Vin的次序也是按BT编号由小到大，如本例中1-W 4-Gas
     + 0.00001 * (sum(Solar) - sum(SolarUsed));               % penalty for solar dismiss
@@ -276,6 +298,7 @@ final2.ElecCutdown = double(Cutdown(1,:));
 final2.ColdCutdown = double(Cutdown(2,:));
 final2.HeatCutdown = double(Cutdown(3,:));
 final2.Cost = double((V_In(1,:) - SolarUsed(1,:))*Price_E' + sum(2.85/10*V_In(2,:)));
+final2.TotalCost = double(Cost2);
 final2.Storage = double(dE);
 final2.SolarUsed = double(SolarUsed);
 final2.CHP = double(V(4,:));
@@ -292,7 +315,7 @@ plot(Time,final.ElecInput); hold on;
 plot(Time,final.GasInput); hold on;
 plot(Time,final.SolarUsed); hold on;
 plot(Time,Solar);
-axis([0 25 0 120])
+axis([0 25 0 140])
 plot([8 8], get(gca, 'YLim'), '--g')
 plot([12 12], get(gca, 'YLim'), '--g')
 plot([17 17], get(gca, 'YLim'), '--g')
@@ -306,7 +329,7 @@ plot(Time,final2.ElecInput); hold on;
 plot(Time,final2.GasInput); hold on;
 plot(Time,final2.SolarUsed); hold on;
 plot(Time,Solar);
-axis([0 25 0 120])
+axis([0 25 0 140])
 plot([8 8], get(gca, 'YLim'), '--g')
 plot([12 12], get(gca, 'YLim'), '--g')
 plot([17 17], get(gca, 'YLim'), '--g')
@@ -340,6 +363,7 @@ figure
 plot(Time,final.ElecShift); hold on;
 plot(Time,final.ColdShift); hold on; 
 plot(Time,final.HeatShift);
+axis([0 25 -30 30])
 plot([8 8], get(gca, 'YLim'), '--g')
 plot([12 12], get(gca, 'YLim'), '--g')
 plot([17 17], get(gca, 'YLim'), '--g')
@@ -352,6 +376,7 @@ figure
 plot(Time,final.ElecCutdown); hold on;
 plot(Time,final.ColdCutdown); hold on;
 plot(Time,final.HeatCutdown);
+axis([0 25 0 30])
 plot([8 8], get(gca, 'YLim'), '--g')
 plot([12 12], get(gca, 'YLim'), '--g')
 plot([17 17], get(gca, 'YLim'), '--g')
@@ -366,6 +391,7 @@ plot(Time,final.GB); hold on;
 plot(Time,final.EC); hold on;
 plot(Time,final.EH); hold on;
 plot(Time,final.AB); hold on;
+axis([0 25 0 70])
 plot([8 8], get(gca, 'YLim'), '--g')
 plot([12 12], get(gca, 'YLim'), '--g')
 plot([17 17], get(gca, 'YLim'), '--g')
@@ -378,6 +404,7 @@ figure
 plot(Time,final.Storage(1,:)); hold on;
 plot(Time,final.Storage(2,:)); hold on;
 plot(Time,final.Storage(3,:)); 
+axis([0 25 -25 25])
 plot([8 8], get(gca, 'YLim'), '--g')
 plot([12 12], get(gca, 'YLim'), '--g')
 plot([17 17], get(gca, 'YLim'), '--g')
