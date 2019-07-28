@@ -14,6 +14,7 @@ Demand = Demand_Summer;
 
 mysolver = 'cplex';
 
+Gas_Coef = 1;
 E = zeros(1,25);  % storage amount
 Storage_Cap = [20,20,20];  % storage capacity
 Storage_Pm = [10,10,10];   % max power of storage
@@ -32,8 +33,8 @@ Branch = [
        1    1  -1   0   120;
        2    1   -1  3   10;
        3    1   -1  4   10;
-       4    4   -1  1   55;
-       5    4   -1  2   20;
+       4    4   -1  1   55 * Gas_Coef;
+       5    4   -1  2   20 * Gas_Coef;
        6    1   1   3   10;
        7    1   1   4   0;
        8    1   1   0   80;
@@ -213,7 +214,7 @@ for hour = 1:24
             V_In(:,hour) >=0; V_Out(:,hour) >=0; V(:,hour)>=0;	
             [V(:,hour);dE(:,hour)] <= Branch(:,cap);
              V_In(1,:) - SolarUsed(1,:) <= 80; % 供应量约束
-             V_In(2,:) <= 60;
+             V_In(2,:) <= 60 * Gas_Coef;
             ];
         
          if(hour > 1)
@@ -241,13 +242,13 @@ Cons1 = [Cons;
         -U <= Shift <= U;];
 
 Cost = (V_In(1,:) - SolarUsed(1,:))*Price_E' + sum(2.85/10*V_In(2,:)... % Vin的次序也是按BT编号由小到大，如本例中1-W 4-Gas
-        + 0.0000* power(Cutdown(1,:),2) + 1.5 * Cutdown(1,:)...  % penalty for cutdown
+        + 0.0000* power(Cutdown(1,:),2) + 2 * Cutdown(1,:)...  % penalty for cutdown
     + 0.0000 * power(Cutdown(2,:),2) + 0.7 * Cutdown(2,:)...
     + 0.0000 * power(Cutdown(3,:),2) + 0.7 * Cutdown(3,:)...
-    + 0.00002 * power(Shift(1,:),2) + 0.6 * Shift_Abs(1,:)/2 ...      % penalty for loadshift
+    + 0.00002 * power(Shift(1,:),2) + 0.8 * Shift_Abs(1,:)/2 ...      % penalty for loadshift
     + 0.00001 * power(Shift(2,:),2) + 0.32 * Shift_Abs(2,:)/2 ...
     + 0.00001 * power(Shift(3,:),2) + 0.32 * Shift_Abs(3,:))/2 ...
-    + 0.2 * (sum(Solar) - sum(SolarUsed));               % penalty for solar dismiss
+    + 0.0 * (sum(Solar) - sum(SolarUsed));               % penalty for solar dismiss
 
 
 ops = sdpsettings('solver',mysolver,'verbose',1);
@@ -391,7 +392,7 @@ plot(Time,final.GB); hold on;
 plot(Time,final.EC); hold on;
 plot(Time,final.EH); hold on;
 plot(Time,final.AB); hold on;
-axis([0 25 0 70])
+axis([0 25 0 70*Gas_Coef])
 plot([8 8], get(gca, 'YLim'), '--g')
 plot([12 12], get(gca, 'YLim'), '--g')
 plot([17 17], get(gca, 'YLim'), '--g')
