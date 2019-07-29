@@ -5,7 +5,7 @@
 % Wind_Summer = renewables.Wind_summer_unit;
 % Wind_Winter = renewables.Wind_winter_unit;
 
-fdir = 'C:\Users\kxxs\Desktop\Energy-Hub\Summer\';
+fdir = 'C:\Users\kxxs\Desktop\Energy-Hub\temp\';
 loaddir = 'C:\Users\kxxs\Desktop\Energy-Hub\Load\';
 
 data_collection;
@@ -241,13 +241,14 @@ Cons1 = [Cons;
         0 <= Shift_Abs + Shift <= 2*U*(1-z); -U*z <= Shift;
         -U <= Shift <= U;];
 
-Cost = (V_In(1,:) - SolarUsed(1,:))*Price_E' + sum(2.85/10*V_In(2,:)... % Vin的次序也是按BT编号由小到大，如本例中1-W 4-Gas
-        + 0.0000* power(Cutdown(1,:),2) + 2 * Cutdown(1,:)...  % penalty for cutdown
-    + 0.0000 * power(Cutdown(2,:),2) + 0.7 * Cutdown(2,:)...
-    + 0.0000 * power(Cutdown(3,:),2) + 0.7 * Cutdown(3,:)...
-    + 0.00002 * power(Shift(1,:),2) + 0.8 * Shift_Abs(1,:)/2 ...      % penalty for loadshift
-    + 0.00001 * power(Shift(2,:),2) + 0.32 * Shift_Abs(2,:)/2 ...
-    + 0.00001 * power(Shift(3,:),2) + 0.32 * Shift_Abs(3,:))/2 ...
+Cost = (V_In(1,:) - SolarUsed(1,:))*Price_E' + sum(2.85/10*V_In(2,:)/2 ... % Vin的次序也是按BT编号由小到大，如本例中1-W 4-Gas
+        + 0.0000* power(Cutdown(1,:),2) + 1.25 * Cutdown(1,:)...  % penalty for cutdown
+    + 0.0000 * power(Cutdown(2,:),2) + 0.35 * Cutdown(2,:)...
+    + 0.0000 * power(Cutdown(3,:),2) + 0.35 * Cutdown(3,:)...
+    + 0.00002 * power(Shift(1,:),2) + 0.45 * Shift_Abs(1,:)/2 ...      % penalty for loadshift
+    + 0.00001 * power(Shift(2,:),2) + 0.25 * Shift_Abs(2,:)/2 ...
+    + 0.00001 * power(Shift(3,:),2) + 0.25 * Shift_Abs(3,:)/2 )...
+     - sum(Cutdown(1,9:11) + Shift_Abs(1,9:11) + Cutdown(1,17:19) + Shift_Abs(1,17:19)) * 0.15... % reward for peak cutdown
     + 0.0 * (sum(Solar) - sum(SolarUsed));               % penalty for solar dismiss
 
 

@@ -6,6 +6,8 @@ model_establish_v2: 通用模板
 
 model_establish_v3: 加入需求侧响应部分
 
+model_establish_v3: 最终版需求侧响应
+
 data.docx: 文献中收集的参数
 
 energy hub.jpg: 自己设计的枢纽结构
