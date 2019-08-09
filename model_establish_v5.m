@@ -1,14 +1,14 @@
-% version 4 : adjustment for summer and spring
+% version 5 : potential assessment
 % Demand of W,R,Q, 按照BT由小到大排
 
 % renewables = importdata('renewable.dat');
 % Wind_Summer = renewables.Wind_summer_unit;
 % Wind_Winter = renewables.Wind_winter_unit;
 
-fdir = 'C:\Users\kxxs\Desktop\Energy-Hub\ExpensiveGas\';
+fdir = 'C:\Users\kxxs\Desktop\Energy-Hub\Summer\';
 loaddir = 'C:\Users\kxxs\Desktop\Energy-Hub\Load\';
 
-data_collection;
+% data_collection;
 Demand = Demand_Summer;
 % load([loaddir,'Demand_Spring.mat']);
 
@@ -16,8 +16,8 @@ mysolver = 'cplex';
 
 Gas_Coef = 1;
 E = zeros(1,25);  % storage amount
-Storage_Cap = [20,20,20];  % storage capacity
-Storage_Pm = [10,10,10];   % max power of storage
+Storage_Cap = [40,40,40];  % storage capacity
+Storage_Pm = [20,20,20];   % max power of storage
 
 Gas_In = zeros(1,24);
 Elec_In = zeros(1,24);
@@ -208,13 +208,13 @@ for hour = 1:24
  			Cutdown(:,hour) <= 0.1*Demand(:,hour);  % 负荷削减约束
             Cutdown >=0;
             Shift(:,hour) <= 10;
- 			Shift(:,hour) <= 0.1*Demand(:,hour);    % 负荷转移约束
+ 			Shift(:,hour) <= 0.3*Demand(:,hour);    % 负荷转移约束
  			Shift(:,hour) >= -0.1*Demand(:,hour);
             V_Out(:,hour) == (Demand(:,hour) - Cutdown(:,hour) + Shift(:,hour));
             V_In(:,hour) >=0; V_Out(:,hour) >=0; V(:,hour)>=0;	
             [V(:,hour);dE(:,hour)] <= Branch(:,cap);
              V_In(1,:) - SolarUsed(1,:) <= 80; % 供应量约束
-             V_In(2,:) <= 60 * Gas_Coef;
+             V_In(2,:) <= 50 * Gas_Coef;
             ];
         
          if(hour > 1)
@@ -241,17 +241,7 @@ Cons1 = [Cons;
         0 <= Shift_Abs + Shift <= 2*U*(1-z); -U*z <= Shift;
         -U <= Shift <= U;];
 
-Cost = (V_In(1,:) - SolarUsed(1,:))*Price_E' + sum(4/10*V_In(2,:) ... % Vin的次序也是按BT编号由小到大，如本例中1-W 4-Gas
-        + 0.0000* power(Cutdown(1,:),2) + 1.25 * Cutdown(1,:)...  % penalty for cutdown
-    + 0.0000 * power(Cutdown(2,:),2) + 0.35 * Cutdown(2,:)...
-    + 0.0000 * power(Cutdown(3,:),2) + 0.35 * Cutdown(3,:)...
-    + 0.00002 * power(Shift(1,:),2) + 0.45 * Shift_Abs(1,:)/2 ...      % penalty for loadshift
-    + 0.00001 * power(Shift(2,:),2) + 0.25 * Shift_Abs(2,:)/2 ...
-    + 0.00001 * power(Shift(3,:),2) + 0.25 * Shift_Abs(3,:)/2 )...
-     - sum(Cutdown(1,9:11) + Shift_Abs(1,9:11) + Cutdown(1,17:19) + Shift_Abs(1,17:19)) * 0.15... % reward for peak cutdown
-    + 0.0 * (sum(Solar) - sum(SolarUsed));               % penalty for solar dismiss
-
-
+Cost = (V_In(1,:) - SolarUsed(1,:))*Price_E' + sum(2.85/10*V_In(2,:));
 ops = sdpsettings('solver',mysolver,'verbose',1);
 solvesdp(Cons1,Cost,ops);
 
@@ -270,7 +260,7 @@ final.HeatShift_Abs = double(Shift_Abs(3,:));
 final.ElecCutdown = double(Cutdown(1,:));
 final.ColdCutdown = double(Cutdown(2,:));
 final.HeatCutdown = double(Cutdown(3,:));
-final.Cost = double((V_In(1,:) - SolarUsed(1,:))*Price_E' + sum(2.85/10*V_In(2,:)));
+final.Cost = double((V_In(1,:) - SolarUsed(1,:))*Price_E' + sum(2.05/10*V_In(2,:))/2);
 final.TotalCost = double(Cost);
 final.Storage = double(dE);
 final.SolarUsed = double(SolarUsed);
@@ -281,11 +271,13 @@ final.EH = double(V(3,:) + V(7,:));
 final.AB = double(V(8,:));
 final.V = double(V);
 
-Cost2 = (V_In(1,:) - SolarUsed(1,:))*Price_E' + sum(2.85/10*V_In(2,:))... % Vin的次序也是按BT编号由小到大，如本例中1-W 4-Gas
-    + 0.00001 * (sum(Solar) - sum(SolarUsed));               % penalty for solar dismiss
+% Total Reduction of Electricity Demand during peak periods after response 
+final.OutputElecCut = [Demand(1,8:12),Demand(1,17:19)] - [double(V_Out(1,8:12)),double(V_Out(1,17:19))];
+
+%%
 ops = sdpsettings('solver',mysolver,'verbose',1);
 Cons2 = [Cons; Shift == 0; Cutdown ==0;];
-solvesdp(Cons2,Cost2,ops);
+solvesdp(Cons2,Cost,ops);
 
 final2.Demand = Demand;
 final2.ElecInput = double(V_In(1,:));
@@ -299,7 +291,7 @@ final2.HeatShift = double(Shift(3,:));
 final2.ElecCutdown = double(Cutdown(1,:));
 final2.ColdCutdown = double(Cutdown(2,:));
 final2.HeatCutdown = double(Cutdown(3,:));
-final2.Cost = double((V_In(1,:) - SolarUsed(1,:))*Price_E' + sum(2.85/10*V_In(2,:)));
+final2.Cost = double(Cost);
 final2.TotalCost = double(Cost2);
 final2.Storage = double(dE);
 final2.SolarUsed = double(SolarUsed);
@@ -308,6 +300,10 @@ final2.GB = double(V(5,:));
 final2.EC = double(V(2,:) + V(6,:));
 final2.EH = double(V(3,:) + V(7,:));
 final2.AB = double(V(8,:));
+
+% Total Reduction of Supplied Electricity during peak periods after response 
+final.InputElecCut = [final2.ElecInput(8:12),final2.ElecInput(17:19)]...
+                          - [final.ElecInput(8:12),final.ElecInput(17:19)];
 
 %% plot the optimal input for each hour
 set(0,'DefaultFigureVisible', 'on')
@@ -414,3 +410,6 @@ plot([21 21], get(gca, 'YLim'), '--g')
 legend('Electricity','Cold','Heat')
 title('Energy Storage')
 saveas(gcf, [fdir,'storage','.jpg'])
+
+% Gain Coefficient = total reduction of elec supply / elec demand during peak periods
+gain_coef = sum(final.InputElecCut)/sum(final.OutputElecCut)

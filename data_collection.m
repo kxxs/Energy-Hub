@@ -2,9 +2,9 @@ set(0,'DefaultFigureVisible', 'on')
 loaddir = 'C:\Users\kxxs\Desktop\Energy-Hub\Load\';
 rand('seed',1);
 
-renewables = importdata('renewable.dat');
-Wind_Summer = renewables.Wind_summer_unit;
-Wind_Winter = renewables.Wind_winter_unit;
+% renewables = importdata('renewable.dat');
+% Wind_Summer = renewables.Wind_summer_unit;
+% Wind_Winter = renewables.Wind_winter_unit;
 
 Time = 1:24;
             %1    2      3    4      5    6     7     8
